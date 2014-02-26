@@ -1,0 +1,262 @@
+import java_cup.runtime.*;
+import java.util.Vector;
+   
+parser code {:
+    
+ public void report_error(String message, Object info) {
+    StringBuffer m = new StringBuffer("Error");
+    if (info instanceof java_cup.runtime.Symbol) {
+      java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+      if (s.left >= 0) {
+        m.append(" in line "+(s.left+1));
+        if (s.right >= 0)
+          m.append(", column "+(s.right+1));
+      }
+    }
+    m.append(" : "+message);
+    //System.err.println(m);
+  }
+
+  public void report_fatal_error(String message, Object info) 
+    throws Exception {
+    report_error(message, info);
+    Exception e=null;
+    throw e;
+    //System.exit(1);
+  }
+
+:};
+
+/* --------Declaration of Terminals and Non Terminals Section------ */
+terminal	DOLLAR, IMPLIES, PERIOD, COMMA, LPAREN, RPAREN, COLON, NOTOP, LBRACKET,RBRACKET, ERROR;
+
+terminal String STAR, HASH, NAME, STRING, COMPARISON, VARIABLE, NUMBER;
+//terminal Integer NUMBER;
+
+non terminal Program ddb ;
+non terminal Rule idb_rule;
+non terminal Predicate predicate,literal;
+non terminal Argument regular_arg,simple_arg,complex_arg,arg;
+non terminal Vector<Rule> idb_rules;
+non terminal Vector<Predicate> idb_body;
+non terminal Vector<Argument> regular_arg_list, simple_arg_list, star_list_or_hash_list, star_list, hash_list,arg_list;
+
+/*non terminal 	ddb, idb_rules, idb_rule, idb_body, literal, predicate, arg_list, arg, regular_arg, simple_arg, complex_arg, regular_arg_list, simple_arg_list, star_list_or_hash_list, star_list, hash_list;
+
+
+/* ----------------------------Grammar Section--------------------- */
+
+ddb ::= idb_rules:ir DOLLAR
+	{: 	Program prog = new Program();
+		prog.setRules(ir);
+		RESULT = prog;
+	:};
+	
+idb_rules ::= idb_rule:ir
+	{: 	
+		Vector<Rule> vrule = new Vector<Rule>();
+		vrule.add(ir);
+		RESULT = vrule;
+	:}
+	| idb_rule:i idb_rules:irs
+	{: 	
+		irs.add(0,i);
+		RESULT = irs;
+	:};
+
+idb_rule ::= NAME:n LPAREN regular_arg_list:regargl RPAREN IMPLIES idb_body:b
+	{: 	
+		Predicate pd = new Predicate();
+		pd.setPredName(n.toUpperCase());
+		pd.setArguments(regargl);
+		Rule r = new Rule();
+		r.setHeadPredicate(pd);
+		r.setBodyPredicates(b);
+		RESULT = r;
+	:} PERIOD;
+
+	
+idb_body ::= literal:lit
+	{: 
+		Vector<Predicate> pd = new Vector<Predicate>();
+		pd.add(lit);
+		RESULT = pd;
+	:}|
+	literal:lit COMMA idb_body:ib
+	{: 	ib.add(0,lit);
+		RESULT = ib;
+	:};
+	
+literal ::= NOTOP predicate:pd
+	{: 	pd.setNegated(true);
+		RESULT = pd;
+	:}|
+	predicate:pd
+	{: 
+		RESULT = pd;
+	:};
+	
+predicate ::= NAME:n LPAREN arg_list:al RPAREN
+	{: 	Predicate pd = new Predicate();
+		pd.setPredName(n.toUpperCase());
+		pd.setArguments(al);
+		RESULT = pd;
+	:}|
+	regular_arg:ra1 COMPARISON:c regular_arg:ra2
+	{: 	Predicate pd = new Predicate();
+		pd.setComparison(true);
+		pd.setLeftOperand(ra1);
+		pd.setRightOperand(ra2);
+		pd.setComparisonOperator(c);
+		RESULT = pd;
+	:};
+
+arg_list ::= arg:ar
+	{: 	
+		Vector<Argument> argvec = new Vector<Argument>();
+		argvec.add(ar);
+		RESULT = argvec;
+	:}|
+	arg:ar COMMA arg_list:al
+	{: 	al.add(0,ar);
+		RESULT = al;
+	:};
+	
+arg ::= regular_arg:ar
+	{: 	RESULT = ar;
+	:}|
+	complex_arg:ar
+	{: 	RESULT = ar;
+	:};
+
+regular_arg ::= NUMBER:n
+	{: 	Argument ar = new Argument();
+		ar.setArgDataType("NUMBER");
+		ar.setArgValue(n);
+		ar.setConstant(true);
+		RESULT = ar;
+	:}|
+	STRING:s
+	{: 	Argument ar = new Argument();
+		ar.setArgDataType("STRING");
+		ar.setArgValue(s);
+		ar.setConstant(true);
+		RESULT = ar;
+	:}|
+	VARIABLE:v
+	{: 	Argument ar = new Argument();
+		ar.setArgName(v.toUpperCase());
+		if(v.equalsIgnoreCase("_")){
+			ar.setUnderscore(true);
+		}
+		RESULT = ar;
+	:};
+	
+simple_arg ::= NUMBER:n
+	{: 	Argument ar = new Argument();
+		ar.setArgDataType("NUMBER");
+		ar.setArgValue(n);
+		ar.setConstant(true);
+		RESULT = ar;
+	:}|
+	STRING:s
+	{: 	Argument ar = new Argument();
+		ar.setArgDataType("STRING");
+		ar.setArgValue(s);
+		ar.setConstant(true);
+		RESULT = ar;
+	:}|
+	VARIABLE:v
+	{: 	Argument ar = new Argument();
+		ar.setArgName(v.toUpperCase());
+		if(v.equalsIgnoreCase("_")){
+			ar.setUnderscore(true);
+		}
+		RESULT = ar;
+	:}|
+	STAR:s
+	{: 	Argument ar = new Argument();
+		ar.setArgName(s.toUpperCase());
+		RESULT = ar;
+	:}|
+	HASH:h
+	{:	Argument ar = new Argument();
+		ar.setArgName(h.toUpperCase());
+		RESULT = ar;
+	:};
+	
+complex_arg ::= LBRACKET star_list_or_hash_list:sh RBRACKET COLON NAME:n LPAREN simple_arg_list:sa RPAREN
+	{: 	Predicate pd = new Predicate();
+		pd.setPredName(n.toUpperCase());
+		pd.setArguments(sa);	
+	
+		Argument ar = new Argument();
+		ar.setComplex(true);
+		ar.setComplexPredicate(pd);
+		ar.setNumberOfStarsOrHashes(sh);
+		if(ar.getNumberOfStarsOrHashes() >=1){
+			Argument arg=sh.firstElement();
+			ar.setArgName(arg.getArgName().toUpperCase());
+		}
+		RESULT = ar;
+	:};
+	
+regular_arg_list ::= regular_arg:ar
+	{:
+		Vector<Argument> argvec = new Vector<Argument>();
+		argvec.add(ar);
+		RESULT = argvec;
+	:}
+	| regular_arg:ar COMMA regular_arg_list:al
+	{: 	
+		al.add(0,ar);
+		RESULT = al;
+	:};
+
+
+simple_arg_list ::= simple_arg:ar
+	{: 	Vector<Argument> argvec = new Vector<Argument>();
+		argvec.add(ar);
+		RESULT = argvec;
+	:}|
+	simple_arg:ar COMMA simple_arg_list:al
+	{: 	al.add(0,ar);
+		RESULT = al;
+	:};
+
+star_list_or_hash_list ::= star_list:sl
+	{: 	RESULT = sl;
+	:}|
+	hash_list:hl
+	{: 	RESULT = hl;
+	:};
+	
+star_list ::= STAR:s
+	{: 	Vector<Argument> argvec= new Vector<Argument>();
+		Argument ar = new Argument();
+		ar.setArgName(s.toUpperCase());
+		argvec.add(ar);
+		RESULT = argvec;
+	:}|
+	STAR:s COMMA star_list:sl
+	{: 	
+		Argument ar = new Argument();
+		ar.setArgName(s.toUpperCase());
+		sl.add(0,ar);
+		RESULT = sl;
+	:};
+
+hash_list ::= HASH:h
+	{: Vector<Argument> argvec= new Vector<Argument>();
+		Argument arg = new Argument();
+		arg.setArgName(h.toUpperCase());
+		argvec.add(arg);
+		RESULT = argvec;
+	:}|
+	HASH:h COMMA hash_list:hl
+	{: 	
+		Argument arg = new Argument();
+		arg.setArgName(h.toUpperCase());		
+		hl.add(0,arg);
+		RESULT = hl;
+	:};

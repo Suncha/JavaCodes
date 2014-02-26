@@ -1,0 +1,17 @@
+To execute the file, follow the instruction below.
+	1. execute the make command.
+	2. java DLOG dblocation
+	3. Filename should be in the format of @filename;		
+		       
+WORK DIVISION
+Since Sanish and Me(Sunny) are roommates, we coded all the project together. Below is
+the division of task, where one individual spend more effort.
+
+
+Sunny Shakya
+  1. Phase 1,
+  2. Phase 3,
+  3. and complex argument check in phase 2.
+  
+Sanish Rai
+  1. Phase 2 whole except complex argument check.
